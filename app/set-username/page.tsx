@@ -11,6 +11,11 @@ export default function SetUsernamePage() {
     e.preventDefault();
     const { data: { user } } = await supabase.auth.getUser();
 
+    if (!user) {
+      setMessage('You must be logged in.');
+      return;
+    }
+
     const { error } = await supabase.from('profiles').insert({
       id: user.id,
       username: username.trim(),
