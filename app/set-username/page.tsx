@@ -7,7 +7,7 @@ export default function SetUsernamePage() {
   const [username, setUsername] = useState('');
   const [message, setMessage] = useState('');
 
-  const handleSetUsername = async (e) => {
+  const handleSetUsername = async (e: React.FormEvent) => {
     e.preventDefault();
     const { data: { user } } = await supabase.auth.getUser();
 

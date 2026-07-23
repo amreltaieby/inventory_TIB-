@@ -8,7 +8,7 @@ export default function StockPage() {
   const [newItemName, setNewItemName] = useState('');
   const [newItemQty, setNewItemQty] = useState('');
   const [newItemUnit, setNewItemUnit] = useState('KG');
-  const [amounts, setAmounts] = useState({});
+  const [amounts, setAmounts] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
     checkProfile();
