@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 
 export default function StockPage() {
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState<any[]>([]);
   const [newItemName, setNewItemName] = useState('');
   const [newItemQty, setNewItemQty] = useState('');
   const [newItemUnit, setNewItemUnit] = useState('KG');
@@ -48,7 +48,7 @@ export default function StockPage() {
     fetchItems();
   };
 
-  const adjustStock = async (item, direction) => {
+  const adjustStock = async (item: any, direction: string) => {
     const amount = Number(amounts[item.id]);
     if (!amount || amount <= 0) {
       alert('Enter a valid amount first');
@@ -63,6 +63,7 @@ export default function StockPage() {
     }
 
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
     await supabase.from('items').update({ quantity: newQuantity }).eq('id', item.id);
 
@@ -77,7 +78,7 @@ export default function StockPage() {
     fetchItems();
   };
 
-  const deleteItem = async (item) => {
+  const deleteItem = async (item: any) => {
     if (!confirm(`Delete "${item.name}"? This cannot be undone.`)) return;
     const { error } = await supabase.from('items').delete().eq('id', item.id);
     if (error) {
@@ -87,7 +88,7 @@ export default function StockPage() {
     fetchItems();
   };
 
-  const editName = async (item) => {
+  const editName = async (item: any) => {
     const newName = prompt('New name for this item:', item.name);
     if (!newName || newName === item.name) return;
     await supabase.from('items').update({ name: newName }).eq('id', item.id);
