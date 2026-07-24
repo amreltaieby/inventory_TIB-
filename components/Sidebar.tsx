@@ -1,10 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 export default function Sidebar() {
   const [showConfirm, setShowConfirm] = useState(false);
+  const [alertCount, setAlertCount] = useState(0);
+
+  useEffect(() => {
+    fetchAlertCount();
+  }, []);
+
+  const fetchAlertCount = async () => {
+    const { data, error } = await supabase.from('items').select('*').not('low_threshold', 'is', null);
+    if (!error && data) {
+      const count = data.filter((item) => Number(item.quantity) <= Number(item.low_threshold)).length;
+      setAlertCount(count);
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -28,7 +41,26 @@ export default function Sidebar() {
       <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
         <a href="/stock" style={navLinkStyle}>Inventory</a>
         <a href="/history" style={navLinkStyle}>Transaction History</a>
-        <a href="/alerts" style={navLinkStyle}>Alerts</a>
+        <a href="/alerts" style={{ ...navLinkStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>Alerts</span>
+          {alertCount > 0 && (
+            <span style={{
+              background: '#dc2626',
+              color: 'white',
+              borderRadius: '999px',
+              minWidth: '20px',
+              height: '20px',
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 5px',
+              marginRight: '20px',
+            }}>
+              {alertCount}
+            </span>
+          )}
+        </a>
       </nav>
 
       <div style={{ padding: '0 20px' }}>
