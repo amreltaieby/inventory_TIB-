@@ -1,11 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { supabase } from '../lib/supabaseClient';
+import { useTheme } from '../lib/ThemeContext';
+import { getColors } from '../lib/theme';
+import { getLowStockMultiplier } from '../lib/settings';
 
 export default function Sidebar() {
-  const [showConfirm, setShowConfirm] = useState(false);
   const [alertCount, setAlertCount] = useState(0);
+  const [collapsed, setCollapsed] = useState(false);
+  const { theme } = useTheme();
+  const c = getColors(theme);
+  const pathname = usePathname();
 
   useEffect(() => {
     fetchAlertCount();
@@ -14,102 +21,84 @@ export default function Sidebar() {
   const fetchAlertCount = async () => {
     const { data, error } = await supabase.from('items').select('*').not('low_threshold', 'is', null);
     if (!error && data) {
-      const count = data.filter((item) => Number(item.quantity) <= Number(item.low_threshold)).length;
+      const multiplier = getLowStockMultiplier();
+      const count = data.filter((item) => Number(item.quantity) <= Number(item.low_threshold) * multiplier).length;
       setAlertCount(count);
     }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.href = '/';
+  const linkStyle = function (active: boolean) {
+    return {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '8px 12px',
+      borderRadius: '6px',
+      fontSize: '13px',
+      fontWeight: 500,
+      textDecoration: 'none',
+      color: active ? '#ffffff' : '#94a3b8',
+      background: active ? c.sidebarButtonActive : 'transparent',
+    } as React.CSSProperties;
+  };
+
+  const badgeStyle: React.CSSProperties = {
+    background: '#dc2626',
+    color: 'white',
+    borderRadius: '999px',
+    minWidth: '18px',
+    height: '18px',
+    fontSize: '11px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '0 5px',
   };
 
   return (
     <div style={{
-      width: '200px',
-      minHeight: '100vh',
-      borderRight: '1px solid #e5e5e5',
+      width: collapsed ? '56px' : '200px',
+      height: '100vh',
+      position: 'sticky',
+      top: 0,
+      alignSelf: 'flex-start',
+      background: c.sidebarBg,
       display: 'flex',
       flexDirection: 'column',
-      padding: '20px 0',
-      fontFamily: 'sans-serif',
+      padding: '16px 10px',
+      transition: 'width 0.15s',
+      borderRight: '1px solid #1e293b',
     }}>
-      <div style={{ padding: '0 20px', marginBottom: '30px', fontWeight: 'bold', fontSize: '18px' }}>
-        Inventory
-      </div>
-
-      <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        <a href="/stock" style={navLinkStyle}>Inventory</a>
-        <a href="/history" style={navLinkStyle}>Transaction History</a>
-        <a href="/alerts" style={{ ...navLinkStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span>Alerts</span>
-          {alertCount > 0 && (
-            <span style={{
-              background: '#dc2626',
-              color: 'white',
-              borderRadius: '999px',
-              minWidth: '20px',
-              height: '20px',
-              fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0 5px',
-              marginRight: '20px',
-            }}>
-              {alertCount}
-            </span>
-          )}
-        </a>
-      </nav>
-
-      <div style={{ padding: '0 20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', padding: '0 4px' }}>
         <button
-          onClick={() => setShowConfirm(true)}
-          style={{
-            width: '100%',
-            padding: '10px',
-            borderRadius: '6px',
-            background: '#dc2626',
-            color: 'white',
-            border: 'none',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-          }}
+          onClick={() => setCollapsed(!collapsed)}
+          style={{ background: 'transparent', color: '#f1f5f9', border: 'none', borderRadius: '6px', width: '30px', height: '30px', fontSize: '15px', cursor: 'pointer', flexShrink: 0 }}
         >
-          Log Out
+          ☰
         </button>
+        {!collapsed && <span style={{ fontWeight: 600, fontSize: '14px', color: '#f1f5f9', letterSpacing: '0.02em' }}>NOVIQ</span>}
       </div>
 
-      {showConfirm && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.4)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          <div style={{ background: 'white', padding: '24px', borderRadius: '8px', maxWidth: '300px', textAlign: 'center' }}>
-            <p style={{ marginTop: 0 }}>Are you sure you want to log out?</p>
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '16px' }}>
-              <button onClick={handleLogout} style={{ padding: '8px 16px', background: '#dc2626', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                Yes, Log Out
-              </button>
-              <button onClick={() => setShowConfirm(false)} style={{ padding: '8px 16px', background: '#eee', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+      {!collapsed && (
+        <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <a href="/home" style={linkStyle(pathname === '/home')}>
+            <span>Home</span>
+          </a>
+          <a href="/stock" style={linkStyle(pathname === '/stock')}>
+            <span>Inventory</span>
+          </a>
+          <a href="/history" style={linkStyle(pathname === '/history')}>
+            <span>History</span>
+          </a>
+          <a href="/alerts" style={linkStyle(pathname === '/alerts')}>
+            <span>Alerts</span>
+            {alertCount > 0 && <span style={badgeStyle}>{alertCount}</span>}
+          </a>
+          <a href="/settings" style={linkStyle(pathname === '/settings')}>
+            <span>Settings</span>
+          </a>
+        </nav>
       )}
     </div>
   );
 }
-
-const navLinkStyle: React.CSSProperties = {
-  padding: '10px 20px',
-  color: '#333',
-  textDecoration: 'none',
-  fontSize: '14px',
-};
