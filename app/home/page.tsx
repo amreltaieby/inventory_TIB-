@@ -13,6 +13,8 @@ export default function HomePage() {
   const [recentAlerts, setRecentAlerts] = useState<any[]>([]);
   const [totalAlerts, setTotalAlerts] = useState(0);
   const [inStockCount, setInStockCount] = useState(0);
+  const [role, setRole] = useState<string | null>(null);
+  const [items, setItems] = useState<any[]>([]);
   const { theme } = useTheme();
   const c = getColors(theme);
 
@@ -32,11 +34,12 @@ export default function HomePage() {
 
   const loadData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { window.location.href = '/'; return; }
+    if (!user) { window.location.href = '/login'; return; }
 
-    const { data: profile } = await supabase.from('profiles').select('username').eq('id', user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('username, full_name, email, role').eq('id', user.id).single();
     if (!profile) { window.location.href = '/set-username'; return; }
-    setUsername(profile.username);
+    setUsername(profile.full_name || profile.username || (profile.email ? profile.email.split('@')[0] : 'there'));
+    setRole(profile.role);
 
     const prevAccess = localStorage.getItem('lastAccessed');
     setLastAccessed(prevAccess);
@@ -49,6 +52,8 @@ export default function HomePage() {
     setRecentTx((tx || []).filter((t: any) => t.timestamp && isTodayOrYesterday(t.timestamp)));
 
     const { data: itemsData } = await supabase.from('items').select('*');
+    setItems(itemsData || []);
+
     const { data: txForSince } = await supabase.from('transactions').select('item_id, timestamp').order('timestamp', { ascending: false });
     const lastTxMap: { [key: string]: string } = {};
     (txForSince || []).forEach((t: any) => { if (!lastTxMap[t.item_id]) lastTxMap[t.item_id] = t.timestamp; });
@@ -71,12 +76,17 @@ export default function HomePage() {
     setInStockCount(inStock);
   };
 
+  const itemValue = (item: any) => {
+    if (item.price_per_unit == null) return null;
+    return Number(item.price_per_unit) * Number(item.quantity);
+  };
+
   return (
     <div style={{ display: 'flex' }}>
       <div style={{ flex: 1, background: c.pageBg, minHeight: '100vh' }}>
-        <div style={{ padding: '20px 32px', borderBottom: `1px solid ${c.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ padding: '20px 32px', borderBottom: '1px solid ' + c.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: c.text }}>Welcome back, {username}</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: c.text }}>Welcome, {username}</div>
             <div style={{ fontSize: '12px', color: c.subtext, marginTop: '2px' }}>
               Last accessed: {lastAccessed ? new Date(lastAccessed).toLocaleString() : 'First time'}
             </div>
@@ -93,35 +103,56 @@ export default function HomePage() {
 
         <div style={{ padding: '24px 32px' }}>
           <div style={{ display: 'flex', gap: '12px', marginBottom: '28px' }}>
-            <a href="/stock" style={{ flex: 1, padding: '18px', textAlign: 'center', borderRadius: '8px', border: `1px solid ${c.border}`, background: c.cardBg, color: c.text, textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>Inventory</a>
-            <a href="/history" style={{ flex: 1, padding: '18px', textAlign: 'center', borderRadius: '8px', border: `1px solid ${c.border}`, background: c.cardBg, color: c.text, textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>Transactions</a>
-            <a href="/alerts" style={{ flex: 1, padding: '18px', textAlign: 'center', borderRadius: '8px', border: `1px solid ${c.border}`, background: c.cardBg, color: c.text, textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>Alerts</a>
-            <a href="/settings" style={{ flex: 1, padding: '18px', textAlign: 'center', borderRadius: '8px', border: `1px solid ${c.border}`, background: c.cardBg, color: c.text, textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>Settings</a>
+            <a href="/stock" style={{ flex: 1, padding: '18px', textAlign: 'center', borderRadius: '8px', border: '1px solid ' + c.border, background: c.cardBg, color: c.text, textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>Inventory</a>
+            <a href="/history" style={{ flex: 1, padding: '18px', textAlign: 'center', borderRadius: '8px', border: '1px solid ' + c.border, background: c.cardBg, color: c.text, textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>Transactions</a>
+            <a href="/alerts" style={{ flex: 1, padding: '18px', textAlign: 'center', borderRadius: '8px', border: '1px solid ' + c.border, background: c.cardBg, color: c.text, textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>Alerts</a>
+            <a href="/settings" style={{ flex: 1, padding: '18px', textAlign: 'center', borderRadius: '8px', border: '1px solid ' + c.border, background: c.cardBg, color: c.text, textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>Settings</a>
           </div>
+
+          {role === 'admin' && items.length > 0 && (
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: c.subtext, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+                Stock Value
+              </div>
+              <div style={{ background: c.cardBg, border: '1px solid ' + c.border, borderRadius: '8px' }}>
+                {items.map((item, i) => {
+                  const value = itemValue(item);
+                  return (
+                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderTop: i > 0 ? '1px solid ' + c.border : 'none', fontSize: '13px' }}>
+                      <span style={{ color: c.text }}>{item.name}</span>
+                      <span style={{ minWidth: '90px', textAlign: 'right', color: value !== null ? c.text : c.subtext }}>
+                        {value !== null ? value.toLocaleString() + ' EGP' : 'N/A'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div style={{ fontSize: '13px', fontWeight: 600, color: c.subtext, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
             Recent Activity
           </div>
 
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: '280px', background: c.cardBg, border: `1px solid ${c.border}`, borderRadius: '8px' }}>
-              <div style={{ padding: '10px 14px', borderBottom: `1px solid ${c.border}`, fontSize: '12px', fontWeight: 600, color: c.text }}>Additions / Removals</div>
+            <div style={{ flex: 1, minWidth: '280px', background: c.cardBg, border: '1px solid ' + c.border, borderRadius: '8px' }}>
+              <div style={{ padding: '10px 14px', borderBottom: '1px solid ' + c.border, fontSize: '12px', fontWeight: 600, color: c.text }}>Additions / Removals</div>
               <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
                 {recentTx.length === 0 && <div style={{ padding: '14px', fontSize: '13px', color: c.subtext }}>Nothing today or yesterday.</div>}
                 {recentTx.map((t, i) => (
-                  <div key={t.id} style={{ padding: '9px 14px', fontSize: '13px', borderTop: i > 0 ? `1px solid ${c.border}` : 'none', color: t.type === 'add' ? '#16a34a' : '#dc2626' }}>
+                  <div key={t.id} style={{ padding: '9px 14px', fontSize: '13px', borderTop: i > 0 ? '1px solid ' + c.border : 'none', color: t.type === 'add' ? '#16a34a' : '#dc2626' }}>
                     {t.type === 'add' ? 'Added' : 'Removed'} {Math.abs(t.quantity_change)} — {t.items?.name}
                   </div>
                 ))}
               </div>
             </div>
 
-            <div style={{ flex: 1, minWidth: '280px', background: c.cardBg, border: `1px solid ${c.border}`, borderRadius: '8px' }}>
-              <div style={{ padding: '10px 14px', borderBottom: `1px solid ${c.border}`, fontSize: '12px', fontWeight: 600, color: c.text }}>Alerts</div>
+            <div style={{ flex: 1, minWidth: '280px', background: c.cardBg, border: '1px solid ' + c.border, borderRadius: '8px' }}>
+              <div style={{ padding: '10px 14px', borderBottom: '1px solid ' + c.border, fontSize: '12px', fontWeight: 600, color: c.text }}>Alerts</div>
               <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
                 {recentAlerts.length === 0 && <div style={{ padding: '14px', fontSize: '13px', color: c.subtext }}>Nothing today or yesterday.</div>}
                 {recentAlerts.map((a, i) => (
-                  <div key={i} style={{ padding: '9px 14px', fontSize: '13px', borderTop: i > 0 ? `1px solid ${c.border}` : 'none', color: a.level === 'Critical' ? '#dc2626' : '#d97706' }}>
+                  <div key={i} style={{ padding: '9px 14px', fontSize: '13px', borderTop: i > 0 ? '1px solid ' + c.border : 'none', color: a.level === 'Critical' ? '#dc2626' : '#d97706' }}>
                     {a.level} — {a.name}
                   </div>
                 ))}

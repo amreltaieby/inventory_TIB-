@@ -10,12 +10,25 @@ import { getLowStockMultiplier } from '../lib/settings';
 export default function Sidebar() {
   const [alertCount, setAlertCount] = useState(0);
   const [collapsed, setCollapsed] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
   const { theme } = useTheme();
   const c = getColors(theme);
   const pathname = usePathname();
 
   useEffect(() => {
     fetchAlertCount();
+    fetchRole();
+
+    const channel = supabase
+      .channel('sidebar-items-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => {
+        fetchAlertCount();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchAlertCount = async () => {
@@ -25,6 +38,13 @@ export default function Sidebar() {
       const count = data.filter((item) => Number(item.quantity) <= Number(item.low_threshold) * multiplier).length;
       setAlertCount(count);
     }
+  };
+
+  const fetchRole = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    setRole(data?.role || null);
   };
 
   const linkStyle = function (active: boolean) {
@@ -97,6 +117,11 @@ export default function Sidebar() {
           <a href="/settings" style={linkStyle(pathname === '/settings')}>
             <span>Settings</span>
           </a>
+          {role === 'admin' && (
+            <a href="/admin-tools" style={linkStyle(pathname === '/admin-tools')}>
+              <span>Admin Tools</span>
+            </a>
+          )}
         </nav>
       )}
     </div>

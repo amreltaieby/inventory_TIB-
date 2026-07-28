@@ -16,10 +16,9 @@ export default function SetUsernamePage() {
       return;
     }
 
-    const { error } = await supabase.from('profiles').insert({
-      id: user.id,
+    const { error } = await supabase.from('profiles').update({
       username: username.trim(),
-    });
+    }).eq('id', user.id);
 
     if (error) {
       if (error.message.includes('duplicate')) {
