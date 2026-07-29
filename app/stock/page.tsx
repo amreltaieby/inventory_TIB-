@@ -65,15 +65,28 @@ export default function StockPage() {
       setTimeout(function () { setQtyError(false); }, 400);
       return;
     }
+    const authResult = await supabase.auth.getUser();
+    const user = authResult.data.user;
+    if (!user) return;
+
     const insertData: any = { name: newItemName, quantity: Number(newItemQty), unit: newItemUnit, company_id: companyId };
     if (role === 'admin' && newItemPrice.trim() !== '') {
       insertData.price_per_unit = Number(newItemPrice);
     }
-    const result = await supabase.from('items').insert(insertData);
+    const result = await supabase.from('items').insert(insertData).select().single();
     if (result.error) {
       alert('Insert failed: ' + result.error.message);
       return;
     }
+
+    await supabase.from('transactions').insert({
+      item_id: result.data.id,
+      user_id: user.id,
+      quantity_change: Number(newItemQty),
+      type: 'add',
+      company_id: companyId,
+    });
+
     setNewItemName('');
     setNewItemQty('');
     setNewItemPrice('');
