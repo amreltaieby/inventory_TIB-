@@ -1,4 +1,4 @@
-'use client';
+ 'use client';
 
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
@@ -12,6 +12,7 @@ export default function HistoryPage() {
   const [dateTo, setDateTo] = useState('');
   const [whoFilter, setWhoFilter] = useState('');
   const [itemFilter, setItemFilter] = useState('');
+  const [orderFilter, setOrderFilter] = useState('');
   const { theme } = useTheme();
   const c = getColors(theme);
 
@@ -43,7 +44,7 @@ export default function HistoryPage() {
   const fetchHistory = async () => {
     const { data, error } = await supabase
       .from('transactions')
-      .select('id, quantity_change, type, timestamp, items(name, unit), profiles(username, full_name, email)')
+      .select('id, quantity_change, type, timestamp, items(name, unit), profiles(username, full_name, email), jobs(name)')
       .order('timestamp', { ascending: false });
     if (error) {
       alert('Failed to load history: ' + error.message);
@@ -59,6 +60,7 @@ export default function HistoryPage() {
 
   const uniqueUsers = Array.from(new Set(transactions.map((t) => getDisplayName(t.profiles)).filter((n) => n !== 'Unknown')));
   const uniqueItems = Array.from(new Set(transactions.map((t) => t.items?.name).filter(Boolean)));
+  const uniqueOrders = Array.from(new Set(transactions.map((t: any) => t.jobs ? t.jobs.name : null).filter(Boolean)));
 
   const filteredTransactions = transactions.filter((t) => {
     if (t.timestamp) {
@@ -68,6 +70,7 @@ export default function HistoryPage() {
     }
     if (whoFilter && getDisplayName(t.profiles) !== whoFilter) return false;
     if (itemFilter && t.items?.name !== itemFilter) return false;
+    if (orderFilter && (!t.jobs || t.jobs.name !== orderFilter)) return false;
     return true;
   });
 
@@ -121,8 +124,13 @@ export default function HistoryPage() {
               <option value="">All items</option>
               {uniqueItems.map((i) => <option key={i} value={i}>{i}</option>)}
             </select>
-            {(dateFrom || dateTo || whoFilter || itemFilter) && (
-              <button onClick={() => { setDateFrom(''); setDateTo(''); setWhoFilter(''); setItemFilter(''); }}
+            <select value={orderFilter} onChange={(e) => setOrderFilter(e.target.value)}
+              style={{ padding: '8px', borderRadius: '6px', border: '1px solid ' + c.inputBorder, background: c.inputBg, color: c.text }}>
+              <option value="">All orders</option>
+              {uniqueOrders.map((o: any) => <option key={o} value={o}>{o}</option>)}
+            </select>
+            {(dateFrom || dateTo || whoFilter || itemFilter || orderFilter) && (
+              <button onClick={() => { setDateFrom(''); setDateTo(''); setWhoFilter(''); setItemFilter(''); setOrderFilter(''); }}
                 style={{ padding: '8px 14px', borderRadius: '6px', border: '1px solid ' + c.inputBorder, background: c.cardBg, color: c.text, cursor: 'pointer' }}>
                 Clear filters
               </button>
@@ -142,6 +150,7 @@ export default function HistoryPage() {
                     <span style={{ fontWeight: 'bold', width: '150px', color: rowColor }}>{t.items?.name || 'Deleted item'}</span>
                     <span style={{ width: '220px', color: rowColor }}>{isAdd ? 'Added' : 'Removed'} {Math.abs(t.quantity_change)} {t.items?.unit}</span>
                     <span style={{ width: '110px', color: rowColor }}>{getDisplayName(t.profiles)}</span>
+                    <span style={{ width: '110px', color: c.subtext, fontSize: '13px' }}>{t.jobs ? t.jobs.name : ''}</span>
                     <span style={{ color: c.subtext, fontSize: '13px' }}>{t.timestamp ? new Date(t.timestamp).toLocaleString() : '—'}</span>
                   </div>
                 );

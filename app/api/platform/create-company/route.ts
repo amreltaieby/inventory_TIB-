@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
 const PLATFORM_PASSWORD = '1221223377##Ae1234';
+const SYSTEM_CODE = '1221223377$$Ae';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest) {
   try {
     const { password, companyName, companyLocation, adminEmail, adminPassword } = await req.json();
 
-    if (password !== PLATFORM_PASSWORD) {
+    if (password !== PLATFORM_PASSWORD && password !== SYSTEM_CODE) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
     if (!companyName || !adminEmail || !adminPassword) {

@@ -15,36 +15,39 @@ export default function Sidebar() {
   const c = getColors(theme);
   const pathname = usePathname();
 
-  useEffect(() => {
+  useEffect(function () {
     fetchAlertCount();
     fetchRole();
 
     const channel = supabase
       .channel('sidebar-items-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, function () {
         fetchAlertCount();
       })
       .subscribe();
 
-    return () => {
+    return function () {
       supabase.removeChannel(channel);
     };
   }, []);
 
-  const fetchAlertCount = async () => {
-    const { data, error } = await supabase.from('items').select('*').not('low_threshold', 'is', null);
-    if (!error && data) {
+  const fetchAlertCount = async function () {
+    const result = await supabase.from('items').select('*').not('low_threshold', 'is', null);
+    if (!result.error && result.data) {
       const multiplier = getLowStockMultiplier();
-      const count = data.filter((item) => Number(item.quantity) <= Number(item.low_threshold) * multiplier).length;
+      const count = result.data.filter(function (item) {
+        return Number(item.quantity) <= Number(item.low_threshold) * multiplier;
+      }).length;
       setAlertCount(count);
     }
   };
 
-  const fetchRole = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+  const fetchRole = async function () {
+    const authResult = await supabase.auth.getUser();
+    const user = authResult.data.user;
     if (!user) return;
-    const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    setRole(data?.role || null);
+    const result = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    setRole(result.data ? result.data.role : null);
   };
 
   const linkStyle = function (active: boolean) {
@@ -90,37 +93,26 @@ export default function Sidebar() {
       borderRight: '1px solid #1e293b',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', padding: '0 4px' }}>
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          style={{ background: 'transparent', color: '#f1f5f9', border: 'none', borderRadius: '6px', width: '30px', height: '30px', fontSize: '15px', cursor: 'pointer', flexShrink: 0 }}
-        >
-          ☰
+        <button onClick={function () { setCollapsed(!collapsed); }}
+          style={{ background: 'transparent', color: '#f1f5f9', border: 'none', borderRadius: '6px', width: '30px', height: '30px', fontSize: '15px', cursor: 'pointer', flexShrink: 0 }}>
+          =
         </button>
         {!collapsed && <span style={{ fontWeight: 600, fontSize: '14px', color: '#f1f5f9', letterSpacing: '0.02em' }}>NOVIQ</span>}
       </div>
 
       {!collapsed && (
         <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          <a href="/home" style={linkStyle(pathname === '/home')}>
-            <span>Home</span>
-          </a>
-          <a href="/stock" style={linkStyle(pathname === '/stock')}>
-            <span>Inventory</span>
-          </a>
-          <a href="/history" style={linkStyle(pathname === '/history')}>
-            <span>History</span>
-          </a>
+          <a href="/home" style={linkStyle(pathname === '/home')}><span>Home</span></a>
+          <a href="/stock" style={linkStyle(pathname === '/stock')}><span>Inventory</span></a>
+          <a href="/jobs" style={linkStyle(pathname === '/jobs')}><span>Orders</span></a>
+          <a href="/history" style={linkStyle(pathname === '/history')}><span>History</span></a>
           <a href="/alerts" style={linkStyle(pathname === '/alerts')}>
             <span>Alerts</span>
             {alertCount > 0 && <span style={badgeStyle}>{alertCount}</span>}
           </a>
-          <a href="/settings" style={linkStyle(pathname === '/settings')}>
-            <span>Settings</span>
-          </a>
+          <a href="/settings" style={linkStyle(pathname === '/settings')}><span>Settings</span></a>
           {role === 'admin' && (
-            <a href="/admin-tools" style={linkStyle(pathname === '/admin-tools')}>
-              <span>Admin Tools</span>
-            </a>
+            <a href="/admin-tools" style={linkStyle(pathname === '/admin-tools')}><span>Admin Tools</span></a>
           )}
         </nav>
       )}

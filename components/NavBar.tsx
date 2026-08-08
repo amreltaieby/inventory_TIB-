@@ -37,6 +37,7 @@ export default function NavBar(props: { lang: 'en' | 'ar'; setLang: (l: 'en' | '
         <button onClick={() => setLang(lang === 'en' ? 'ar' : 'en')} style={{ background: 'none', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '5px 10px', fontSize: '13px', cursor: 'pointer' }}>{lang === 'en' ? 'العربية' : 'English'}</button>
         <a href="/login" style={{ background: '#0f172a', color: 'white', padding: '7px 16px', borderRadius: '6px', textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}>{lang === 'ar' ? 'تسجيل الدخول' : 'Log In'}</a>
         <a href="/consultation" style={{ border: '1px solid #0f172a', color: '#0f172a', padding: '7px 16px', borderRadius: '6px', textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}>{lang === 'ar' ? 'اطلب استشارة' : 'Request a Consultation'}</a>
+        <a href="/register" style={{ background: '#16a34a', color: 'white', padding: '7px 16px', borderRadius: '6px', textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}>{lang === 'ar' ? 'سجل شركتك' : 'Register Company'}</a>
       </div>
 
       <div style={{ fontSize: '26px', fontWeight: 700, color: '#0f172a', textShadow: '1px 1px 3px rgba(0,0,0,0.15)' }}>NOVIQ</div>
