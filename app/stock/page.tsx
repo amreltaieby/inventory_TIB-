@@ -6,7 +6,6 @@ import Sidebar from '../../components/Sidebar';
 import { useTheme } from '../../lib/ThemeContext';
 import { getColors } from '../../lib/theme';
 import { getAdminPassword } from '../../lib/adminAuth';
-import { useLanguage } from '../../lib/LanguageContext';
 
 export default function StockPage() {
   const [items, setItems] = useState<any[]>([]);
@@ -29,6 +28,8 @@ export default function StockPage() {
   const [editUnitInput, setEditUnitInput] = useState('KG');
   const [thresholdInput, setThresholdInput] = useState('');
   const [priceInput, setPriceInput] = useState('');
+  const [displacementInput, setDisplacementInput] = useState('');
+  const [meterConfirmItem, setMeterConfirmItem] = useState<any | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [companyId, setCompanyId] = useState<number | null>(null);
   const [openJobs, setOpenJobs] = useState<any[]>([]);
@@ -36,32 +37,46 @@ export default function StockPage() {
   const [showSelectJobPrompt, setShowSelectJobPrompt] = useState(false);
   const { theme } = useTheme();
   const c = getColors(theme);
-  const { lang } = useLanguage();
 
-  const t = lang === 'ar' ? {
-    noJob: 'بدون طلب', inventory: 'المخزون', stockValue: 'قيمة المخزون',
-    itemName: 'اسم الصنف', qty: 'الكمية', pricePer: 'السعر لكل ', addItem: 'إضافة صنف',
-    sort: 'ترتيب', nameAZ: 'الاسم (أ-ي)', nameZA: 'الاسم (ي-أ)', qtyLow: 'الكمية (تصاعدي)', qtyHigh: 'الكمية (تنازلي)',
-    noMatch: 'لا توجد أصناف مطابقة.', amount: 'الكمية', add: 'إضافة', remove: 'إزالة',
-    setThreshold: 'تحديد حد التنبيه', setPrice: 'تحديد السعر / ', editName: 'تعديل الاسم / نوع الكمية', delete: 'حذف',
-    adminRequired: 'مطلوب إذن المسؤول', enterPassword: 'أدخل كلمة مرور المسؤول للمتابعة.', cancel: 'إلغاء', confirm: 'تأكيد',
-    name: 'الاسم', quantityType: 'نوع الكمية', save: 'حفظ',
-    thresholdTitle: 'تحديد حد التنبيه', thresholdDesc: 'التنبيه عندما تصل الكمية إلى هذا الرقم أو أقل.',
-    priceTitle: 'تحديد السعر لكل ', priceDesc: 'السعر بالجنيه المصري لكل وحدة كمية.',
-    deleteConfirm: 'حذف', deleteWarn: 'لا يمكن التراجع عن هذا. لا يمكن حذف الأصناف التي لها سجل معاملات.',
-    selectOrderFirst: 'اختر طلبًا أولاً', selectOrderDesc: 'يمكن إزالة المواد فقط عند اختيار طلب أعلاه.', ok: 'موافق',
-  } : {
-    noJob: 'No Job', inventory: 'Inventory', stockValue: 'Stock value',
-    itemName: 'Item name', qty: 'Qty', pricePer: 'Price per ', addItem: 'Add Item',
-    sort: 'sort', nameAZ: 'Name (A to Z)', nameZA: 'Name (Z to A)', qtyLow: 'Qty (Low to High)', qtyHigh: 'Qty (High to Low)',
-    noMatch: 'No items match your search.', amount: 'Amount', add: 'Add', remove: 'Remove',
-    setThreshold: 'Set Alert Threshold', setPrice: 'Set Price / ', editName: 'Edit Name / Quantity Type', delete: 'Delete',
-    adminRequired: 'Admin permission required', enterPassword: 'Enter the admin password to continue.', cancel: 'Cancel', confirm: 'Confirm',
-    name: 'Name', quantityType: 'Quantity Type', save: 'Save',
-    thresholdTitle: 'Set alert threshold', thresholdDesc: 'Alert when quantity drops to this number or below.',
-    priceTitle: 'Set price per ', priceDesc: 'Price in EGP per unit of quantity.',
-    deleteConfirm: 'Delete', deleteWarn: 'This cannot be undone. Items with transaction history cannot be deleted.',
-    selectOrderFirst: 'Select an order first', selectOrderDesc: 'Materials can only be removed while an order is selected above.', ok: 'OK',
+  const t = {
+    noJob: 'No Job',
+    inventory: 'Inventory',
+    stockValue: 'Stock value',
+    itemName: 'Item name',
+    qty: 'Qty',
+    pricePer: 'Price per ',
+    addItem: 'Add Item',
+    sort: 'Sort',
+    nameAZ: 'Name (A to Z)',
+    nameZA: 'Name (Z to A)',
+    qtyLow: 'Qty (Low to High)',
+    qtyHigh: 'Qty (High to Low)',
+    noMatch: 'No items match your search.',
+    amount: 'Amount',
+    add: 'Add',
+    remove: 'Remove',
+    setThreshold: 'Set Alert Threshold',
+    setPrice: 'Set Price / ',
+    editName: 'Edit Name / Quantity Type',
+    delete: 'Delete',
+    adminRequired: 'Admin permission required',
+    enterPassword: 'Enter the admin password to continue.',
+    cancel: 'Cancel',
+    confirm: 'Confirm',
+    name: 'Name',
+    quantityType: 'Quantity Type',
+    save: 'Save',
+    thresholdTitle: 'Set alert threshold',
+    thresholdDesc: 'Alert when quantity drops to this number or below.',
+    priceTitle: 'Set price per ',
+    priceDesc: 'Price in EGP per unit of quantity.',
+    deleteConfirm: 'Delete',
+    deleteWarn: 'This cannot be undone. Items with transaction history cannot be deleted.',
+    selectOrderFirst: 'Select an order first',
+    selectOrderDesc: 'Materials can only be removed while an order is selected above.',
+    ok: 'OK',
+    displacement: 'Displacement',
+    addEditDisplacement: 'Add/Edit Displacement',
   };
 
   useEffect(function () {
@@ -159,7 +174,18 @@ export default function StockPage() {
     fetchItems();
   };
 
-  const adjustStock = async function (item: any, direction: string) {
+  const getActiveJob = function () {
+    return openJobs.find(function (job) { return job.id === activeJobId; }) || null;
+  };
+
+  const isLiquidBatchOrder = function () {
+    const job = getActiveJob();
+    if (!job) return false;
+    const type = String(job.order_type || job.job_type || job.type || '').toLowerCase().replace(/[-_ ]/g, '');
+    return type === 'liquidbatch';
+  };
+
+  const performAdjustStock = async function (item: any, direction: string) {
     if (direction === 'remove' && !activeJobId) {
       setShowSelectJobPrompt(true);
       return;
@@ -191,6 +217,21 @@ export default function StockPage() {
     fetchItems();
   };
 
+  const adjustStock = async function (item: any, direction: string) {
+    if (direction === 'remove' && isLiquidBatchOrder() && String(item.unit).toLowerCase() === 'meters') {
+      setMeterConfirmItem(item);
+      return;
+    }
+    await performAdjustStock(item, direction);
+  };
+
+  const confirmMeterItem = async function () {
+    if (!meterConfirmItem) return;
+    const item = meterConfirmItem;
+    setMeterConfirmItem(null);
+    await performAdjustStock(item, 'remove');
+  };
+
   const openAction = function (item: any, action: string) {
     setMenuOpenFor(null);
     setPendingAction({ item: item, action: action });
@@ -213,6 +254,9 @@ export default function StockPage() {
       }
       if (pendingAction.action === 'price') {
         setPriceInput(pendingAction.item.price_per_unit != null ? pendingAction.item.price_per_unit : '');
+      }
+      if (pendingAction.action === 'displacement') {
+        setDisplacementInput(pendingAction.item.displacement != null ? pendingAction.item.displacement : '');
       }
       setActionStep(pendingAction);
     }
@@ -246,6 +290,24 @@ export default function StockPage() {
     await supabase.from('items').update({ price_per_unit: num }).eq('id', actionStep.item.id);
     fetchItems();
     setActionStep(null);
+  };
+
+  const submitDisplacement = async function () {
+    if (!actionStep) return;
+    const trimmed = displacementInput.trim();
+    const num = trimmed === '' ? null : Number(trimmed);
+    if (num !== null && (!Number.isFinite(num) || num <= 0)) {
+      alert('Enter a valid displacement.');
+      return;
+    }
+    const result = await supabase.from('items').update({ displacement: num }).eq('id', actionStep.item.id);
+    if (result.error) {
+      alert('Could not save displacement: ' + result.error.message);
+      return;
+    }
+    fetchItems();
+    setActionStep(null);
+    setDisplacementInput('');
   };
 
   const submitDelete = async function () {
@@ -320,6 +382,7 @@ export default function StockPage() {
               <option value="Ton">Ton</option>
               <option value="L">L</option>
               <option value="Unit">Unit</option>
+              <option value="meters">meters</option>
             </select>
             {role === 'admin' && (
               <input placeholder={t.pricePer + newItemUnit} type="number" value={newItemPrice} onChange={function (e) { setNewItemPrice(e.target.value); }}
@@ -360,6 +423,13 @@ export default function StockPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
                   <span style={{ minWidth: '120px', fontWeight: 'bold', color: c.text }}>{item.name}</span>
                   <span style={{ minWidth: '90px', fontWeight: 'bold', color: c.text }}>{item.quantity} {item.unit}</span>
+
+                  {String(item.unit).toLowerCase() === 'kg' && item.displacement != null && (
+
+                    <span style={{ minWidth: '120px', color: c.subtext, fontSize: '12px' }}>Displacement: {item.displacement}</span>
+
+                  )}
+
                   {role === 'admin' && (
                     <span style={{ minWidth: '110px', color: c.subtext, fontSize: '13px' }}>
                       {value !== null ? value.toLocaleString() + ' EGP' : 'N/A'}
@@ -377,11 +447,21 @@ export default function StockPage() {
                     <button onClick={function () { setMenuOpenFor(menuOpenFor === item.id ? null : item.id); }}
                       style={{ padding: '8px 12px', borderRadius: '6px', background: c.cardBg, color: c.text, border: '1px solid ' + c.border, cursor: 'pointer', fontSize: '16px', lineHeight: 1 }}>...</button>
                     {menuOpenFor === item.id && (
-                      <div style={{ position: 'absolute', top: '110%', right: 0, background: c.cardBg, border: '1px solid ' + c.border, borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 50, minWidth: '190px', textAlign: 'left' }}>
+                      <div style={{ position: 'absolute', top: '110%', right: 0, background: c.cardBg, color: c.text, border: '1px solid ' + c.border, borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 50, minWidth: '190px', textAlign: 'left' }}>
                         <button onClick={function () { openAction(item, 'threshold'); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', border: 'none', background: 'transparent', color: c.text, cursor: 'pointer', fontSize: '13px' }}>{t.setThreshold}</button>
                         {role === 'admin' && (
                           <button onClick={function () { openAction(item, 'price'); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', border: 'none', background: 'transparent', color: c.text, cursor: 'pointer', fontSize: '13px' }}>{t.setPrice}{item.unit}</button>
                         )}
+                        {String(item.unit).toLowerCase() === 'kg' && (
+
+                          <button onClick={function () { openAction(item, 'displacement'); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', border: 'none', background: 'transparent', color: c.text, cursor: 'pointer', fontSize: '13px' }}>
+
+                            Add/Edit Displacement
+
+                          </button>
+
+                        )}
+
                         <button onClick={function () { openAction(item, 'edit'); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', border: 'none', background: 'transparent', color: c.text, cursor: 'pointer', fontSize: '13px' }}>{t.editName}</button>
                         <button onClick={function () { openAction(item, 'delete'); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', border: 'none', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontSize: '13px' }}>{t.delete}</button>
                       </div>
@@ -425,6 +505,7 @@ export default function StockPage() {
               <option value="Ton">Ton</option>
               <option value="L">L</option>
               <option value="Unit">Unit</option>
+              <option value="meters">meters</option>
             </select>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
               <button onClick={function () { setActionStep(null); }} style={{ padding: '7px 14px', fontSize: '13px', background: 'transparent', border: '1px solid ' + c.border, color: c.text, borderRadius: '6px', cursor: 'pointer' }}>{t.cancel}</button>
@@ -464,6 +545,23 @@ export default function StockPage() {
         </div>
       )}
 
+      {actionStep && actionStep.action === 'displacement' && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ background: c.cardBg, color: c.text, padding: '20px', borderRadius: '10px', maxWidth: '320px', width: '100%' }}>
+            <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>Add/Edit Displacement</div>
+            <p style={{ fontSize: '12px', color: c.subtext }}>Set the displacement used for packaging calculations. Leave empty to remove it.</p>
+            <input type="number" min="0" step="any" value={displacementInput}
+              onChange={function (e) { setDisplacementInput(e.target.value); }} autoFocus
+              placeholder="e.g. 0.75"
+              style={{ width: '100%', padding: '8px 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid ' + c.inputBorder, background: c.inputBg, color: c.text, boxSizing: 'border-box', marginBottom: '8px' }} />
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button onClick={function () { setActionStep(null); setDisplacementInput(''); }} style={{ padding: '7px 14px', fontSize: '13px', background: 'transparent', border: '1px solid ' + c.border, color: c.text, borderRadius: '6px', cursor: 'pointer' }}>{t.cancel}</button>
+              <button onClick={submitDisplacement} style={{ padding: '7px 14px', fontSize: '13px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>{t.save}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {actionStep && actionStep.action === 'delete' && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div style={{ background: c.cardBg, color: c.text, padding: '20px', borderRadius: '10px', maxWidth: '300px', width: '100%' }}>
@@ -472,6 +570,21 @@ export default function StockPage() {
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
               <button onClick={function () { setActionStep(null); }} style={{ padding: '7px 14px', fontSize: '13px', background: 'transparent', border: '1px solid ' + c.border, color: c.text, borderRadius: '6px', cursor: 'pointer' }}>{t.cancel}</button>
               <button onClick={submitDelete} style={{ padding: '7px 14px', fontSize: '13px', background: '#dc2626', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>{t.deleteConfirm}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {meterConfirmItem && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}>
+          <div style={{ background: c.cardBg, color: c.text, padding: '20px', borderRadius: '10px', maxWidth: '360px', width: '100%' }}>
+            <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '8px' }}>Are you sure you want to add "{meterConfirmItem.name}"?</div>
+            <p style={{ fontSize: '12px', color: c.subtext, lineHeight: 1.5 }}>
+              "{meterConfirmItem.name}"'s quantity is in meters and you're currently in a Liquid Batch Order.
+            </p>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '14px' }}>
+              <button onClick={function () { setMeterConfirmItem(null); }} style={{ padding: '8px 12px', fontSize: '13px', background: 'transparent', border: '1px solid ' + c.border, color: c.text, borderRadius: '6px', cursor: 'pointer' }}>No, go back</button>
+              <button onClick={confirmMeterItem} style={{ padding: '8px 14px', fontSize: '13px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Yes</button>
             </div>
           </div>
         </div>
